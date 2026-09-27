@@ -2,6 +2,11 @@ package org.zeplinko.commons.lang.ext.core;
 
 import jakarta.annotation.Nonnull;
 import org.zeplinko.commons.lang.ext.annotations.Preview;
+import org.zeplinko.commons.lang.ext.util.function.ThrowingBiFunction;
+import org.zeplinko.commons.lang.ext.util.function.ThrowingConsumer;
+import org.zeplinko.commons.lang.ext.util.function.ThrowingFunction;
+import org.zeplinko.commons.lang.ext.util.function.ThrowingRunnable;
+import org.zeplinko.commons.lang.ext.util.function.ThrowingSupplier;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -116,6 +121,121 @@ public class Try<T> extends AbstractOutcome<T, Exception> {
         try {
             T result = callable.call();
             return Try.success(result);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Try.failure(e);
+        } catch (Exception e) {
+            return Try.failure(e);
+        }
+    }
+
+    /**
+     * Executes a runnable that may throw a checked exception.
+     *
+     * @param runnable The runnable to execute.
+     * @return A {@code Try<Empty>} representing success or failure.
+     */
+    @Preview
+    public static Try<Empty> run(@Nonnull ThrowingRunnable runnable) {
+        Objects.requireNonNull(runnable);
+        try {
+            runnable.run();
+            return Try.success(Empty.getInstance());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Try.failure(e);
+        } catch (Exception e) {
+            return Try.failure(e);
+        }
+    }
+
+    /**
+     * Executes a block of code with a resource that is automatically closed,
+     * capturing any exceptions into a {@code Try}.
+     *
+     * @param resourceSupplier A supplier that creates the resource.
+     * @param action           The function to execute with the resource.
+     * @param <R>              The type of the resource (must be AutoCloseable).
+     * @param <T>              The type of the result.
+     * @return A {@code Try} containing the result or any exception thrown.
+     */
+    @Preview
+    public static <R extends AutoCloseable, T> Try<T> withResources(
+            @Nonnull ThrowingSupplier<R> resourceSupplier,
+            @Nonnull ThrowingFunction<? super R, ? extends T> action
+    ) {
+        Objects.requireNonNull(resourceSupplier);
+        Objects.requireNonNull(action);
+        try (R resource = resourceSupplier.get()) {
+            return Try.success(action.apply(resource));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Try.failure(e);
+        } catch (Exception e) {
+            return Try.failure(e);
+        }
+    }
+
+    /**
+     * Executes a block of code with two resources that are automatically closed,
+     * capturing any exceptions into a {@code Try}.
+     * <p>
+     * Resources are closed in reverse order of acquisition: the second resource is
+     * closed first, followed by the first resource. If closing a resource throws an
+     * exception, it is added as a suppressed exception if the action also threw.
+     * </p>
+     *
+     * @param resourceSupplier1 A supplier that creates the first resource.
+     * @param resourceSupplier2 A supplier that creates the second resource.
+     * @param action            The function to execute with the resources.
+     * @param <R1>              The type of the first resource (must be
+     *                          AutoCloseable).
+     * @param <R2>              The type of the second resource (must be
+     *                          AutoCloseable).
+     * @param <T>               The type of the result.
+     * @return A {@code Try} containing the result or any exception thrown.
+     */
+    @Preview
+    public static <R1 extends AutoCloseable, R2 extends AutoCloseable, T> Try<T> withResources(
+            @Nonnull ThrowingSupplier<R1> resourceSupplier1,
+            @Nonnull ThrowingSupplier<R2> resourceSupplier2,
+            @Nonnull ThrowingBiFunction<? super R1, ? super R2, ? extends T> action
+    ) {
+        Objects.requireNonNull(resourceSupplier1);
+        Objects.requireNonNull(resourceSupplier2);
+        Objects.requireNonNull(action);
+        try (
+                R1 r1 = resourceSupplier1.get();
+                R2 r2 = resourceSupplier2.get()
+        ) {
+            return Try.success(action.apply(r1, r2));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Try.failure(e);
+        } catch (Exception e) {
+            return Try.failure(e);
+        }
+    }
+
+    /**
+     * Executes a side effect operation with a resource that is automatically
+     * closed.
+     *
+     * @param resourceSupplier A supplier that creates the resource.
+     * @param action           The consumer to execute with the resource.
+     * @param <R>              The type of the resource (must be AutoCloseable).
+     * @return A {@code Try<Empty>} representing success or failure.
+     */
+    @Preview
+    public static <R extends AutoCloseable> Try<Empty> consumeResource(
+            @Nonnull ThrowingSupplier<R> resourceSupplier,
+            @Nonnull ThrowingConsumer<? super R> action
+    ) {
+        Objects.requireNonNull(resourceSupplier);
+        Objects.requireNonNull(action);
+        try (R resource = resourceSupplier.get()) {
+            action.accept(resource);
+            return Try.success(Empty.getInstance());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return Try.failure(e);
