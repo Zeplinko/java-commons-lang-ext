@@ -3,6 +3,7 @@ package org.zeplinko.commons.lang.ext.util.function;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.function.BiFunction;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -54,5 +55,79 @@ class ThrowingBiFunctionTest {
         ThrowingBiFunction<String, String, String> function = (first, second) -> null;
         String result = function.apply("a", "b");
         assertNull(result);
+    }
+
+    @Test
+    void test_whenAndThenIsInvoked_thenAppliesAfterFunction() throws Exception {
+        ThrowingBiFunction<Integer, Integer, Integer> sum = Integer::sum;
+        ThrowingFunction<Integer, String> stringify = i -> "result=" + i;
+        ThrowingBiFunction<Integer, Integer, String> composed = sum.andThen(stringify);
+        assertEquals("result=8", composed.apply(5, 3));
+    }
+
+    @Test
+    void test_whenAndThenBiFunctionThrows_thenExceptionPropagated() {
+        ThrowingBiFunction<String, String, String> biFunction = (a, b) -> {
+            throw new IOException("bi failed");
+        };
+        ThrowingFunction<String, Integer> after = String::length;
+        ThrowingBiFunction<String, String, Integer> composed = biFunction.andThen(after);
+        assertThrows(IOException.class, () -> composed.apply("a", "b"));
+    }
+
+    @Test
+    void test_whenAndThenAfterFunctionThrows_thenExceptionPropagated() {
+        ThrowingBiFunction<Integer, Integer, Integer> sum = Integer::sum;
+        ThrowingFunction<Integer, String> after = i -> {
+            throw new IOException("after failed");
+        };
+        ThrowingBiFunction<Integer, Integer, String> composed = sum.andThen(after);
+        assertThrows(IOException.class, () -> composed.apply(1, 2));
+    }
+
+    @Test
+    void test_whenAndThenCalledWithNull_thenThrowsNullPointerException() {
+        ThrowingBiFunction<Integer, Integer, Integer> f = Integer::sum;
+        assertThrows(NullPointerException.class, () -> f.andThen(null));
+    }
+
+    @Test
+    void test_whenToUncheckedIsInvoked_thenReturnsStandardBiFunction() {
+        ThrowingBiFunction<Integer, Integer, Integer> throwing = Integer::sum;
+        BiFunction<Integer, Integer, Integer> standard = throwing.toUnchecked();
+        assertEquals(8, standard.apply(5, 3));
+    }
+
+    @Test
+    void test_whenToUncheckedThrows_thenRethrowsAsRuntimeException() {
+        ThrowingBiFunction<String, String, String> throwing = (a, b) -> {
+            throw new IOException("io error");
+        };
+        BiFunction<String, String, String> standard = throwing.toUnchecked();
+        assertThrows(RuntimeException.class, () -> standard.apply("a", "b"));
+    }
+
+    @Test
+    void test_whenToUncheckedThrows_thenOriginalExceptionIsWrapped() {
+        IOException cause = new IOException("io error");
+        ThrowingBiFunction<String, String, String> throwing = (a, b) -> {
+            throw cause;
+        };
+        BiFunction<String, String, String> standard = throwing.toUnchecked();
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> standard.apply("a", "b"));
+        assertSame(cause, ex.getCause());
+    }
+
+    @Test
+    void test_whenToUncheckedThrowsRuntimeException_thenNotWrapped() {
+        IllegalArgumentException original = new IllegalArgumentException("direct");
+        ThrowingBiFunction<String, String, String> throwing = (a, b) -> {
+            throw original;
+        };
+        RuntimeException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> throwing.toUnchecked().apply("a", "b")
+        );
+        assertSame(original, ex);
     }
 }

@@ -3,6 +3,7 @@ package org.zeplinko.commons.lang.ext.util.function;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -47,5 +48,42 @@ class ThrowingSupplierTest {
         String[] result = supplier.get();
         assertSame(expectedArray, result);
         assertArrayEquals(expectedArray, result);
+    }
+
+    @Test
+    void test_whenToUncheckedIsInvoked_thenReturnsStandardSupplier() {
+        ThrowingSupplier<String> throwing = () -> "hello";
+        Supplier<String> standard = throwing.toUnchecked();
+        assertEquals("hello", standard.get());
+    }
+
+    @Test
+    void test_whenToUncheckedThrows_thenRethrowsAsRuntimeException() {
+        ThrowingSupplier<String> throwing = () -> {
+            throw new IOException("io error");
+        };
+        Supplier<String> standard = throwing.toUnchecked();
+        assertThrows(RuntimeException.class, standard::get);
+    }
+
+    @Test
+    void test_whenToUncheckedThrows_thenOriginalExceptionIsWrapped() {
+        IOException cause = new IOException("io error");
+        ThrowingSupplier<String> throwing = () -> {
+            throw cause;
+        };
+        Supplier<String> standard = throwing.toUnchecked();
+        RuntimeException ex = assertThrows(RuntimeException.class, standard::get);
+        assertSame(cause, ex.getCause());
+    }
+
+    @Test
+    void test_whenToUncheckedThrowsRuntimeException_thenNotWrapped() {
+        IllegalArgumentException original = new IllegalArgumentException("direct");
+        ThrowingSupplier<String> throwing = () -> {
+            throw original;
+        };
+        RuntimeException ex = assertThrows(IllegalArgumentException.class, throwing.toUnchecked()::get);
+        assertSame(original, ex);
     }
 }
