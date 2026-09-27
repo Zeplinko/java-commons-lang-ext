@@ -6,7 +6,7 @@
 
     <groupId>org.zeplinko</groupId>
     <artifactId>commons-lang-ext</artifactId>
-    <version>1.3.0</version>
+    <version>1.3.1</version>
 
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
@@ -42,7 +42,7 @@
             <plugin>
                 <groupId>org.sonatype.central</groupId>
                 <artifactId>central-publishing-maven-plugin</artifactId>
-                <version>0.4.0</version>
+                <version>0.9.0</version>
                 <extensions>true</extensions>
                 <configuration>
                     <autoPublish>false</autoPublish>
