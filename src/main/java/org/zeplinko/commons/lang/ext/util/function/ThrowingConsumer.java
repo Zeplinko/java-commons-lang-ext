@@ -1,5 +1,8 @@
 package org.zeplinko.commons.lang.ext.util.function;
 
+import java.util.Objects;
+import java.util.function.Consumer;
+
 /**
  * A {@link java.util.function.Consumer}-like functional interface whose
  * {@link #accept(Object)} method is allowed to throw a checked
@@ -24,4 +27,39 @@ public interface ThrowingConsumer<T> {
      * @throws Exception if the operation fails
      */
     void accept(T t) throws Exception;
+
+    /**
+     * Returns a composed consumer that performs, in sequence, this operation
+     * followed by the {@code after} operation. If this operation throws, the
+     * {@code after} operation is not performed.
+     *
+     * @param after the operation to perform after this operation
+     * @return a composed consumer
+     */
+    default ThrowingConsumer<T> andThen(ThrowingConsumer<T> after) {
+        Objects.requireNonNull(after, "after must not be null");
+        return t -> {
+            this.accept(t);
+            after.accept(t);
+        };
+    }
+
+    /**
+     * Returns a standard {@link Consumer} that delegates to this consumer, wrapping
+     * any checked exception in a {@link RuntimeException}.
+     *
+     * @return a {@link Consumer} that wraps checked exceptions in
+     *         {@link RuntimeException}
+     */
+    default Consumer<T> toUnchecked() {
+        return t -> {
+            try {
+                this.accept(t);
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        };
+    }
 }

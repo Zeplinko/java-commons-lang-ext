@@ -4,7 +4,9 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -59,5 +61,82 @@ class ThrowingConsumerTest {
         consumer.accept(array);
         assertEquals(1, list.size());
         assertSame(array, list.get(0));
+    }
+
+    @Test
+    void test_whenAndThenIsInvoked_thenBothConsumersAreExecuted() throws Exception {
+        List<String> log = new ArrayList<>();
+        ThrowingConsumer<String> first = s -> log.add("first:" + s);
+        ThrowingConsumer<String> second = s -> log.add("second:" + s);
+        first.andThen(second).accept("x");
+        assertEquals(Arrays.asList("first:x", "second:x"), log);
+    }
+
+    @Test
+    void test_whenAndThenFirstConsumerThrows_thenSecondConsumerNotCalled() {
+        List<String> log = new ArrayList<>();
+        ThrowingConsumer<String> first = s -> {
+            throw new IOException("first failed");
+        };
+        ThrowingConsumer<String> second = s -> log.add("second");
+        assertThrows(IOException.class, () -> first.andThen(second).accept("x"));
+        assertTrue(log.isEmpty());
+    }
+
+    @Test
+    void test_whenAndThenCalledWithNull_thenThrowsNullPointerException() {
+        ThrowingConsumer<String> c = s -> {
+        };
+        assertThrows(NullPointerException.class, () -> c.andThen(null));
+    }
+
+    @Test
+    void test_whenAndThenSecondConsumerThrows_thenExceptionPropagated() {
+        List<String> log = new ArrayList<>();
+        ThrowingConsumer<String> first = s -> log.add("first:" + s);
+        ThrowingConsumer<String> second = s -> {
+            throw new IOException("second failed");
+        };
+        assertThrows(IOException.class, () -> first.andThen(second).accept("x"));
+        assertEquals(Arrays.asList("first:x"), log);
+    }
+
+    @Test
+    void test_whenToUncheckedIsInvoked_thenReturnsStandardConsumer() {
+        List<String> log = new ArrayList<>();
+        ThrowingConsumer<String> throwing = log::add;
+        Consumer<String> standard = throwing.toUnchecked();
+        standard.accept("hello");
+        assertEquals(Arrays.asList("hello"), log);
+    }
+
+    @Test
+    void test_whenToUncheckedThrows_thenRethrowsAsRuntimeException() {
+        ThrowingConsumer<String> throwing = s -> {
+            throw new IOException("io error");
+        };
+        Consumer<String> standard = throwing.toUnchecked();
+        assertThrows(RuntimeException.class, () -> standard.accept("x"));
+    }
+
+    @Test
+    void test_whenToUncheckedThrows_thenOriginalExceptionIsWrapped() {
+        IOException cause = new IOException("io error");
+        ThrowingConsumer<String> throwing = s -> {
+            throw cause;
+        };
+        Consumer<String> standard = throwing.toUnchecked();
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> standard.accept("x"));
+        assertSame(cause, ex.getCause());
+    }
+
+    @Test
+    void test_whenToUncheckedThrowsRuntimeException_thenNotWrapped() {
+        IllegalArgumentException original = new IllegalArgumentException("direct");
+        ThrowingConsumer<String> throwing = s -> {
+            throw original;
+        };
+        RuntimeException ex = assertThrows(IllegalArgumentException.class, () -> throwing.toUnchecked().accept("x"));
+        assertSame(original, ex);
     }
 }

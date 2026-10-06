@@ -21,4 +21,23 @@ public interface ThrowingRunnable {
      * @throws Exception if the operation fails
      */
     void run() throws Exception;
+
+    /**
+     * Returns a standard {@link Runnable} that delegates to this runnable, wrapping
+     * any checked exception in a {@link RuntimeException}.
+     *
+     * @return a {@link Runnable} that wraps checked exceptions in
+     *         {@link RuntimeException}
+     */
+    default Runnable toUnchecked() {
+        return () -> {
+            try {
+                this.run();
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        };
+    }
 }

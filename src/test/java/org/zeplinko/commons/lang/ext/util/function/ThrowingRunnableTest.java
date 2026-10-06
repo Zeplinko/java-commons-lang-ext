@@ -52,4 +52,43 @@ class ThrowingRunnableTest {
         };
         assertDoesNotThrow(runnable::run);
     }
+
+    @Test
+    void test_whenToUncheckedIsInvoked_thenReturnsStandardRunnable() {
+        AtomicInteger counter = new AtomicInteger(0);
+        ThrowingRunnable throwing = counter::incrementAndGet;
+        Runnable standard = throwing.toUnchecked();
+        standard.run();
+        assertEquals(1, counter.get());
+    }
+
+    @Test
+    void test_whenToUncheckedThrows_thenRethrowsAsRuntimeException() {
+        ThrowingRunnable throwing = () -> {
+            throw new IOException("io error");
+        };
+        Runnable standard = throwing.toUnchecked();
+        assertThrows(RuntimeException.class, standard::run);
+    }
+
+    @Test
+    void test_whenToUncheckedThrows_thenOriginalExceptionIsWrapped() {
+        IOException cause = new IOException("io error");
+        ThrowingRunnable throwing = () -> {
+            throw cause;
+        };
+        Runnable standard = throwing.toUnchecked();
+        RuntimeException ex = assertThrows(RuntimeException.class, standard::run);
+        assertSame(cause, ex.getCause());
+    }
+
+    @Test
+    void test_whenToUncheckedThrowsRuntimeException_thenNotWrapped() {
+        IllegalArgumentException original = new IllegalArgumentException("direct");
+        ThrowingRunnable throwing = () -> {
+            throw original;
+        };
+        RuntimeException ex = assertThrows(IllegalArgumentException.class, throwing.toUnchecked()::run);
+        assertSame(original, ex);
+    }
 }
